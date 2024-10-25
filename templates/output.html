@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Output</title>
+<script>
+function copyText(text) {
+    // 创建一个临时的textarea元素用于复制
+    var textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+        var successful = document.execCommand('copy');
+        var msg = successful ? 'successful' : 'unsuccessful';
+    } catch (err) {
+        console.error('Oops, unable to copy', err);
+    }
+    document.body.removeChild(textArea);
+}
+</script>
+</head>
+<body>
+
+{% for item in items %}
+<p onclick="copyText('{{ item | replacenewline }}');">{{ item }}</p>
+{% endfor %}
+
+</body>
+</html>

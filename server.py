@@ -6,8 +6,10 @@ from util.clear import clear
 from manga_ocr import MangaOcr
 import threading
 import configparser
+from jinja2 import Environment, FileSystemLoader
 app = Flask(__name__)
 file_path = './temp/input.jpg'
+env = Environment(loader=FileSystemLoader('templates'))
 def parse_img():
     picture_num = extract_text(file_path, True)
     with open('./temp/output.txt', 'w', encoding='utf-8') as f:
@@ -34,26 +36,16 @@ def upload_file():
 @app.route('/getOutput', methods=['GET'])
 def getOutput():
     with open('./temp/output.txt', 'r', encoding='utf-8') as f:
-        return f.readlines()
+        env.filters['replacenewline'] = lambda s: s.replace('\n','')
+        template = env.get_template('output.html')
+        return template.render(items = f.readlines())
 @app.route('/upload', methods=['GET'])
 def uploadPage():
     config = configparser.ConfigParser()
     config.read('config.ini')
     ip = config['url']['server_url']
-    html_template = f'''<!doctype html>
-<html>
-<head>
-    <title>Upload Image</title>
-</head>
-<body>
-    <h1>Upload Image</h1>
-    <form action="{ip}/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="file">
-        <input type="submit" value="Upload">
-    </form>
-</body>
-</html>'''
-    return html_template
+    template = env.get_template('upload.html')
+    return template.render(url=ip+'/upload')
 # @app.route('/infer', methods=['POST'])
 # def infer():
 #     i = request.values.get('i')
