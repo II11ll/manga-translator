@@ -36,7 +36,7 @@ def main():
     image_num = extract_text(args.image_path, args.draw_rectangle)
     thread.join()
     with open('output.txt', 'w', encoding='utf-8') as f:
-        for i in range(1, image_num + 1):
+        for i in range(image_num):
             sentence = infer(mocr, i)
             f.write(sentence + '\n')
             if args.traslation:

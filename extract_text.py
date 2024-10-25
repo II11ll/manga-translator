@@ -74,9 +74,10 @@ def extract_text(image_path, draw_rectangle):
     if len(areas) == 0:
         return
     areas.sort(key=lambda x: x[0])
+
     i = 0
     for draw_area in merge_area(areas):
-        i = i+1
+        
         image = Image.open(image_path)
         if draw_rectangle:
             draw = ImageDraw.Draw(image)
@@ -92,6 +93,7 @@ def extract_text(image_path, draw_rectangle):
 
         # 保存截取后的图片
         cropped_image.save(f'./temp/{i}.jpg')
+        i = i+1
     return i
 
 
