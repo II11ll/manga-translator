@@ -1,0 +1,5 @@
+config.ini
+temp/
+.python-version
+__pycache__/
+util/
