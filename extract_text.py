@@ -1,11 +1,27 @@
 import subprocess
 import json
 from PIL import Image, ImageDraw, ImageFont
-
+from shapely.geometry import box
+adjacent_distance = 20
+# 上边界或下边界相邻
+def up_or_down_adjacent(current_area, next_area):
+    if abs(current_area[2] - next_area[2]) < adjacent_distance or abs(current_area[3] - next_area[3]) < adjacent_distance:
+        return True
+def is_adjacent(current_area, next_area):
+    # 临近的规则是一个area的左与另一个的右<20，且二者上边界或下边界<20
+    if abs(current_area[1] - next_area[0]) < adjacent_distance \
+            and up_or_down_adjacent(current_area, next_area):
+        return True
+def is_overlap(current_area, next_area):
+    # 使用shapely库判断矩形是否重叠
+    # https://docs.pingcode.com/baike/1147120
+    box1 = box(current_area[0],current_area[2],current_area[1],current_area[3])
+    box2 = box(next_area[0],next_area[2],next_area[1],next_area[3])
+    return box1.intersects(box2)
+    
 # 将临近的文本拼接
 # todo 代码已经魔改成屎山了，希望有大佬可以优化逻辑...
 def merge_area(areas):
-    adjacent_distance = 20
     # 如果是连着大于两列文本，要不断循环拼接，直到一次循环中无任何可拼接为止
     has_merge = True
     
@@ -21,9 +37,8 @@ def merge_area(areas):
             if current_area[4]:
                 continue
             for next_area in areas[areas.index(current_area)+1:]:
-                # 临近的规则是一个area的左与另一个的右<20，且二者上边界或下边界<20
-                if abs(current_area[1] - next_area[0]) < adjacent_distance \
-                    and (abs(current_area[2] - next_area[2]) < adjacent_distance or abs(current_area[3] - next_area[3]) < adjacent_distance):
+                
+                if is_adjacent(current_area, next_area) or is_overlap(current_area, next_area):
                     merged_area.append(
                         [min(current_area[0], next_area[0]),
                         max(current_area[1], next_area[1]),
@@ -43,7 +58,7 @@ def merge_area(areas):
 
 def extract_text(image_path, draw_rectangle):
     # 定义命令和参数
-    command = ["paddleocr", "--image_dir", image_path, "--use_angle_cls", "true", "--rec", "false"]
+    command = ["paddleocr", "--image_dir", image_path, "--use_angle_cls", "true", "--rec", "false", "--lang=japan"]
 
     # 使用 subprocess.run 执行命令
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
