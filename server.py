@@ -1,20 +1,28 @@
 from flask import Flask, request
 from flask_cors import CORS
 import os
-from extract_text import extract_text
 from util.clear import clear
 from manga_ocr import MangaOcr
 import threading
 import configparser
 from jinja2 import Environment, FileSystemLoader
+import subprocess
 app = Flask(__name__)
-file_path = './temp/input.jpg'
+file_path = './input/input.jpg'
 env = Environment(loader=FileSystemLoader('templates'))
 def parse_img():
-    picture_num = extract_text(file_path, True)
-    with open('./temp/output.txt', 'w', encoding='utf-8') as f:
+    # todo: 这样每次解析都要重新加载模型，实在是下下策
+    command = 'cd comic-text-detector && python inference.py'
+    result = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, text=True)
+    picture_num = int(result.stdout.replace('\n',''))
+    with open('./output/output.txt', 'w', encoding='utf-8') as f:
         for i in range(picture_num):
-            infer_text = mocr(f'./temp/{i}.jpg')
+            image_path = f'./output/cut_image_{i}.png'
+            if not os.path.exists(image_path):
+                continue
+            infer_text = mocr(image_path)
+            if len(infer_text) == 1:
+                continue
             f.write(infer_text+'\n')
             f.write('请分析此日语句子的语法并为汉字标注假名：' + infer_text + '\n')
 @app.route('/upload', methods=['POST'])
@@ -35,7 +43,7 @@ def upload_file():
         return '上传成功', 200
 @app.route('/getOutput', methods=['GET'])
 def getOutput():
-    with open('./temp/output.txt', 'r', encoding='utf-8') as f:
+    with open('./output/output.txt', 'r', encoding='utf-8') as f:
         env.filters['replacenewline'] = lambda s: s.replace('\n','')
         template = env.get_template('output.html')
         return template.render(items = f.readlines())

@@ -2,7 +2,6 @@ import argparse
 from extract_text import extract_text
 from infer import infer
 from manga_ocr import MangaOcr
-from time import sleep
 import threading
 from translation import translation
 import configparser
@@ -29,8 +28,12 @@ def main():
                         help='调用百度翻译API翻译')
     parser.add_argument('-g','--generate_promopt', action='store_true',
                         help='生成ai问答提示词')
+    parser.add_argument('-de','--debug', action='store_true',
+                        help='调试')
     args = parser.parse_args()
-
+    if args.debug:
+        extract_text('./temp/input.jpg', True, True)
+        return
     thread = threading.Thread(target=init_mocr)
     thread.start()
     image_num = extract_text(args.image_path, args.draw_rectangle)

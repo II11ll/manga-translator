@@ -37,7 +37,6 @@ def merge_area(areas):
             if current_area[4]:
                 continue
             for next_area in areas[areas.index(current_area)+1:]:
-                
                 if is_adjacent(current_area, next_area) or is_overlap(current_area, next_area):
                     merged_area.append(
                         [min(current_area[0], next_area[0]),
@@ -56,7 +55,14 @@ def merge_area(areas):
             merged_area.append(areas[-1])
     return merged_area
 
-def extract_text(image_path, draw_rectangle):
+def draw_rectangle_function(image, draw_area, i):
+    draw = ImageDraw.Draw(image)
+    draw.rectangle([draw_area[0], draw_area[2], draw_area[1], draw_area[3]], outline='red')
+    font_path = "DejaVuSans-Bold.ttf" 
+    font_size = 40
+    font = ImageFont.truetype(font_path, font_size)
+    draw.text([draw_area[1], draw_area[3]], str(i), font=font, fill=(255, 0, 0))
+def extract_text(image_path, draw_rectangle, debug=False):
     # 定义命令和参数
     command = ["paddleocr", "--image_dir", image_path, "--use_angle_cls", "true", "--rec", "false", "--lang=japan"]
 
@@ -88,27 +94,25 @@ def extract_text(image_path, draw_rectangle):
             # image.save('input.jpg')
     if len(areas) == 0:
         return
+    if debug:
+        for i, area in enumerate(areas):
+            image = Image.open(image_path)
+            draw_rectangle_function(image, area, i)
+            image.save(image_path)
+        return
     areas.sort(key=lambda x: x[0])
 
     i = 0
+    image = Image.open(image_path)
     for draw_area in merge_area(areas):
-        
-        image = Image.open(image_path)
         if draw_rectangle:
-            draw = ImageDraw.Draw(image)
-            draw.rectangle([draw_area[0], draw_area[2], draw_area[1], draw_area[3]], outline='red')
-            font_path = "DejaVuSans-Bold.ttf" 
-            font_size = 40
-            font = ImageFont.truetype(font_path, font_size)
-            draw.text([draw_area[1], draw_area[3]], str(i), font=font, fill=(255, 0, 0))
-        # todo: 画到另一个文件时会相互覆盖，需要优化逻辑
-        image.save(image_path)
+            draw_rectangle_function(image, draw_area, i)
+
         # 根据坐标点截取图片
         cropped_image = image.crop((draw_area[0], draw_area[2], draw_area[1], draw_area[3]))
 
         # 保存截取后的图片
         cropped_image.save(f'./temp/{i}.jpg')
         i = i+1
+    image.save('./temp/output.jpg')
     return i
-
-

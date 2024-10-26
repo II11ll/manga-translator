@@ -1,5 +1,5 @@
 #### Features
-- 基于paddle-ocr的文本位置检测
+- 基于dmMaze/comic-text-detector的文本位置检测
 - 基于manga-ocr的日语文本识别
 - 接百度翻译API
 - server.py可以运行一个上传加看结果的网页，手机上凑合用吧...
@@ -8,9 +8,3 @@
 ```
 python main.py -d -t -g
 ```
-原图：
-![原图](./static/original.jpg)
-识别后的测试图如下：
-![识别后的图](./static/output.jpg)
-文字识别结果+翻译+提示词：
-[点击这里查看 output.txt 文件](./static/output.txt)
