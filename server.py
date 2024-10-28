@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 from flask_cors import CORS
 import os
 import shutil
@@ -11,8 +11,10 @@ import subprocess
 import json
 import time
 app = Flask(__name__)
-
+app.config['OUTPUT_FOLDER'] = 'output'
 env = Environment(loader=FileSystemLoader('templates'))
+
+web_debug = False #仅调试网页，不加载模型
 def parse_img(folder_name: str):
     if folder_name.index('.') != -1:
         folder_name = folder_name.split('.')[0]
@@ -64,15 +66,26 @@ def upload_file():
             filename = file.filename
         file.save(f'./input/{filename}')
         # 时间太长，开个线程
-        thread = threading.Thread(target=parse_img, args=(filename,))
-        thread.start()
+        if not web_debug:
+            thread = threading.Thread(target=parse_img, args=(filename,))
+            thread.start()
         return '上传成功', 200
 @app.route('/getOutput', methods=['GET'])
 def getOutput():
     with open('./output/output.txt', 'r', encoding='utf-8') as f:
-        env.filters['replacenewline'] = lambda s: s.replace('\n','')
+        #env.filters['replacenewline'] = lambda s: s.replace('\n','')
         template = env.get_template('output.html')
-        return template.render(items = f.readlines())
+        output = []
+        dic = {}
+        for index, line in enumerate(f.readlines()):
+            if index % 2 == 0:
+                dic = {}
+                dic['index'] = index // 2
+                dic['original'] = line.replace('\n','')
+            else:
+                dic['prompt'] = line.replace('\n','')
+                output.append(dic)
+        return template.render(output = output)
 @app.route('/upload', methods=['GET'])
 def uploadPage():
     config = configparser.ConfigParser()
@@ -80,11 +93,15 @@ def uploadPage():
     ip = config['url']['server_url']
     template = env.get_template('upload.html')
     return template.render(url=ip+'/upload')
+@app.route('/output/<filename>')
+def uploaded_file(filename):
+    return send_from_directory('output', filename)
 # @app.route('/infer', methods=['POST'])
 # def infer():
 #     i = request.values.get('i')
 #     text = mocr(f'./temp/{i}.jpg')
 #     return text, 200
-mocr = MangaOcr()
+if not web_debug:
+    mocr = MangaOcr()
 CORS(app)
 app.run(host='0.0.0.0', debug=True)

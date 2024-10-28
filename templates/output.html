@@ -21,10 +21,43 @@ function copyText(text) {
 </script>
 </head>
 <body>
-
-{% for item in items %}
-<p onclick="copyText('{{ item | replacenewline }}');">{{ item }}</p>
-{% endfor %}
-
+    <img src="output/labeled.png" class="img-fluid mx-auto d-block" style="max-width: 100%;" loading="lazy"/>
+    <div class="container">
+        <div class="row">
+          <div class="col-3">
+            <!-- 页面右边的跳转链接 -->
+            <div id="jump-links">
+                {% for item in output %}
+                  <a href="#item-{{ item['index'] }}">{{ item['index'] }}</a><br>
+                {% endfor %}
+            </div>
+          </div>
+          <div class="col-9">
+            <!-- 主要内容 -->
+            {% for item in output %}
+                <div class="row" id="item-{{ item['index'] }}">
+                  <div class="col-1 text-right">
+                    <!-- 输出锚点 -->
+                    <a href="#item-{{ item['index'] }}"><span class="badge badge-primary">{{ item['index'] }}</span></a>
+                  </div>
+                  <div class="col-11">
+                    <p onclick="copyText('{{ item }}');">{{ item['original'] }}</p>
+                    <p onclick="copyText('{{ item }}');">{{ item['prompt'] }}</p>
+                </div>
+                </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    <style>
+        #jump-links {
+          position: fixed;
+          right: 0px;
+          top: 50%; /* 初始位置在垂直方向中间 */
+          transform: translateY(-50%); /* 垂直居中 */
+          font-size: 60px;
+        }
+      </style>
 </body>
+
 </html>
