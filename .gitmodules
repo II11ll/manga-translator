@@ -1,3 +1,3 @@
-[submodule "comic-text-detector"]
-	path = comic-text-detector
-	url = https://github.com/dmMaze/comic-text-detector
+[submodule "detector"]
+	path = detector
+	url = https://github.com/II11ll/detector.git
