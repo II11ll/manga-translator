@@ -1,16 +1,21 @@
 from flask import Flask, request
 from flask_cors import CORS
 import os
+import shutil
 from util.clear import clear
 from manga_ocr import MangaOcr
 import threading
 import configparser
 from jinja2 import Environment, FileSystemLoader
 import subprocess
+import json
+import time
 app = Flask(__name__)
-file_path = './input/input.jpg'
+
 env = Environment(loader=FileSystemLoader('templates'))
-def parse_img():
+def parse_img(folder_name: str):
+    if folder_name.index('.') != -1:
+        folder_name = folder_name.split('.')[0]
     # todo: 这样每次解析都要重新加载模型，实在是下下策
     command = 'cd comic-text-detector && python inference.py'
     result = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, text=True)
@@ -25,6 +30,23 @@ def parse_img():
                 continue
             f.write(infer_text+'\n')
             f.write('请分析此日语句子的语法并为汉字标注假名：' + infer_text + '\n')
+    with open('./store/saved.json', 'a+', encoding='utf-8') as f:
+        source_folder = './output'
+        destination_folder = f'./store/{folder_name}'
+        os.makedirs(destination_folder)
+        shutil.copytree(source_folder, destination_folder, dirs_exist_ok=True)
+        data = json.load(f)
+        info = {
+            'folder_name' : folder_name,
+            'img_num' : picture_num-1,
+            'create_time' : time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+        }
+        if 'files' in data:
+            data['files'].append(info)
+        else:
+            data['files'] = [info]
+        json.dump(data, f, ensure_ascii=False, indent=4)
+        
 @app.route('/upload', methods=['POST'])
 def upload_file():
     clear()
@@ -36,9 +58,13 @@ def upload_file():
     if file.filename == '':
         return '没有选择文件', 400
     if file:
-        file.save(file_path)
+        if 'filename' in request.form and len(request.form['filename']) != 0:
+            filename = request.form['filename'] + 'jpg'
+        else:
+            filename = file.filename
+        file.save(f'./input/{filename}')
         # 时间太长，开个线程
-        thread = threading.Thread(target=parse_img)
+        thread = threading.Thread(target=parse_img, args=(filename,))
         thread.start()
         return '上传成功', 200
 @app.route('/getOutput', methods=['GET'])
