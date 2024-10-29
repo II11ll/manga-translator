@@ -1,27 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Image</title>
-    <!-- 引入 Bootstrap CSS -->
-    <link rel="stylesheet" href="./static/bootstrap.min.css">
-    <!-- 可选：自定义样式 -->
-    <style>
-        body {
-            padding-top: 20px;
-        }
-    </style>
-</head>
-<body>
+{% extends "base.html" %}
+
+{% block content %}
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-md-6 col-sm-12">
                 <h1 class="text-center">Upload Image</h1>
                 <form action="{{ url }}" method="post" enctype="multipart/form-data">
                     <div class="form-group">
-                        <label for="filename">File Name:</label>
-                        <input type="text" class="form-control" id="filename" name="filename" placeholder="Enter file name">
+                        <label for="filename">文件名:</label>
+                        <input type="text" class="form-control" id="filename" name="filename" placeholder="文件名，不输入默认为上传文件名">
+                        <label for="authorname">作者:</label>
+                        <input type="text" class="form-control" id="authorname" name="authorname" placeholder="作者名">
+                        <label for="sourceurl">File Name:</label>
+                        <input type="text" class="form-control" id="sourceurl" name="sourceurl" placeholder="源地址">
                     </div>
                     <div class="form-group">
                         <input type="file" class="form-control-file" name="file">
@@ -31,9 +22,4 @@
             </div>
         </div>
     </div>
-    <!-- 引入 Bootstrap JS 和依赖的 Popper.js 以及 jQuery -->
-    <script src="./static/jquery-3.5.1.slim.min.js"></script>
-    <script src="./static/popper.min.js"></script>
-    <script src="./static/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+{% endblock %}

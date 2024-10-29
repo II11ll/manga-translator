@@ -21,7 +21,7 @@ function copyText(text) {
 </script>
 </head>
 <body>
-    <img src="output/labeled.png" class="img-fluid mx-auto d-block" style="max-width: 100%;" loading="lazy"/>
+    <img src="{{folder}}/labeled.png" class="img-fluid mx-auto d-block" style="max-width: 100%;" loading="lazy"/>
     <div class="container">
         <div class="row">
           <div class="col-3">
@@ -41,8 +41,8 @@ function copyText(text) {
                     <a href="#item-{{ item['index'] }}"><span class="badge badge-primary">{{ item['index'] }}</span></a>
                   </div>
                   <div class="col-11">
-                    <p onclick="copyText('{{ item }}');">{{ item['original'] }}</p>
-                    <p onclick="copyText('{{ item }}');">{{ item['prompt'] }}</p>
+                    <p onclick="copyText('{{ item['original'] }}');">{{ item['original'] }}</p>
+                    <p onclick="copyText('{{ item['prompt'] }}');">{{ item['prompt'] }}</p>
                 </div>
                 </div>
             {% endfor %}

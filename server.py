@@ -13,13 +13,15 @@ import time
 import sys
 sys.path.append('detector')
 from detector import inference, init
+import cv2
 
 app = Flask(__name__)
 app.config['OUTPUT_FOLDER'] = 'output'
 env = Environment(loader=FileSystemLoader('templates'))
 
 web_debug = False #仅调试网页，不加载模型
-def parse_img(folder_name: str):
+def parse_img(args_param):
+    folder_name = args_param['filename']
     if folder_name.index('.') != -1:
         folder_name = folder_name.split('.')[0]
 
@@ -38,6 +40,7 @@ def parse_img(folder_name: str):
     with open(f'{current_directory}/store/saved.json', 'r+', encoding='utf-8') as f:
         # 将文件指针移到文件开头
         f.seek(0)
+        # 复制output文件夹到store
         source_folder = f'{current_directory}/output'
         destination_folder = f'{current_directory}/store/{folder_name}'
         os.makedirs(destination_folder)
@@ -46,7 +49,9 @@ def parse_img(folder_name: str):
         info = {
             'folder_name' : folder_name,
             'img_num' : picture_num-1,
-            'create_time' : time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+            'create_time' : time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
+            'author_name' : args_param['authorname'],
+            'source_url' : args_param['sourceurl']
         }
         if 'files' in data:
             data['files'].append(info)
@@ -59,7 +64,22 @@ def parse_img(folder_name: str):
         
         # 写入更新后的数据
         json.dump(data, f, ensure_ascii=False, indent=4)
-        
+def generate_thumbnail(filename):
+    # 读取图片
+    img = cv2.imread('./input/'+filename)
+
+    # 设置缩放比例
+    scale_percent = 20  # 表示缩放20%
+
+    # 计算新的尺寸
+    width = int(img.shape[1] * scale_percent / 100)
+    height = int(img.shape[0] * scale_percent / 100)
+
+    # 进行缩放
+    resized = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
+
+    # 保存缩略图
+    cv2.imwrite('./output/'+'thumbnail.jpg', resized)
 @app.route('/upload', methods=['POST'])
 def upload_file():
     clear()
@@ -71,19 +91,28 @@ def upload_file():
     if file.filename == '':
         return '没有选择文件', 400
     if file:
-        if 'filename' in request.form and len(request.form['filename']) != 0:
-            filename = request.form['filename'] + 'jpg'
+        args_param = {}
+        if not request.form.get('filename') and len(request.form.get('filename')) > 0:
+            args_param['filename'] = request.form.get('filename') + '.jpg'
         else:
-            filename = file.filename
-        file.save(f'./input/{filename}')
+            args_param['filename'] = file.filename
+        args_param['authorname'] = request.form.get('authorname', '')
+        args_param['sourceurl'] = request.form.get('sourceurl', '')
+        file.save('./input/'+args_param['filename'])
+        generate_thumbnail(args_param['filename'])
         # 时间太长，开个线程
         if not web_debug:
-            thread = threading.Thread(target=parse_img, args=(filename,))
+            thread = threading.Thread(target=parse_img, args=(args_param,))
             thread.start()
         return '上传成功', 200
 @app.route('/getOutput', methods=['GET'])
 def getOutput():
-    with open('./output/output.txt', 'r', encoding='utf-8') as f:
+    folder = request.args.get('folder', default=None, type=str)
+    if folder:
+        folder = 'store/' + folder
+    else:
+        folder = 'output'
+    with open(f'./{folder}/output.txt', 'r', encoding='utf-8') as f:
         #env.filters['replacenewline'] = lambda s: s.replace('\n','')
         template = env.get_template('output.html')
         output = []
@@ -96,7 +125,7 @@ def getOutput():
             else:
                 dic['prompt'] = line.replace('\n','')
                 output.append(dic)
-        return template.render(output = output)
+        return template.render(output = output, folder = folder)
 @app.route('/upload', methods=['GET'])
 def uploadPage():
     config = configparser.ConfigParser()
@@ -104,9 +133,20 @@ def uploadPage():
     ip = config['url']['server_url']
     template = env.get_template('upload.html')
     return template.render(url=ip+'/upload')
+@app.route('/gallery', methods=['GET'])
+def galleryPage():
+    with open('./store/saved.json', 'r', encoding='utf-8') as f:
+        f.seek(0)
+        images_data = json.load(f)
+    template = env.get_template('gallery.html')
+    return template.render(images_data = images_data['files'])
 @app.route('/output/<filename>')
 def uploaded_file(filename):
     return send_from_directory('output', filename)
+@app.route('/store/<path:filename>')
+def gallery_file(filename):
+    # todo : filename中含有..时会被黑
+    return send_from_directory('store', filename)
 # @app.route('/infer', methods=['POST'])
 # def infer():
 #     i = request.values.get('i')
