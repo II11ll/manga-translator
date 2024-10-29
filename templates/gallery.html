@@ -5,7 +5,7 @@
     {% for image in images_data %}
     <div class="col-md-4 col-sm-6 mb-4">
         <div class="card">
-            <img src="store/{{image['folder_name']}}/thumbnail.jpg" class="card-img-top" alt="{{ image['folder_name'] }}">
+            <img src="store/{{image['folder_name']}}/thumbnail.jpg" class="card-img-top" alt="{{ image['folder_name'] }}" loading="lazy">
             <div class="card-body">
                 <h5 class="card-title">{{ image['folder_name'] }}</h5>
                 <a href="getOutput?folder={{image['folder_name']}}" class="btn btn-primary">查看详情</a>

@@ -1,6 +1,6 @@
 import argparse
-from extract_text import extract_text
-from infer import infer
+from deprecated.extract_text import extract_text
+from deprecated.infer import infer
 from manga_ocr import MangaOcr
 import threading
 from translation import translation
