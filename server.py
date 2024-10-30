@@ -1,4 +1,4 @@
-from flask import Flask, request, send_from_directory
+from flask import Flask, request, send_from_directory, url_for
 from flask_cors import CORS
 import os
 import shutil
@@ -7,19 +7,21 @@ from manga_ocr import MangaOcr
 import threading
 import configparser
 from jinja2 import Environment, FileSystemLoader
-import subprocess
-import json
 import time
 import sys
 sys.path.append('detector')
 from detector import inference, init
 import cv2
 import re
-
+from sqlalchemy import create_engine
+from model.gallery import Gallery
+from sqlalchemy.orm import sessionmaker
 app = Flask(__name__)
 app.config['OUTPUT_FOLDER'] = 'output'
 env = Environment(loader=FileSystemLoader('templates'))
-
+current_directory = os.path.dirname(os.path.abspath(__file__))
+engine = create_engine(f'sqlite:////{current_directory}/store/saved.db')
+Session = sessionmaker(bind=engine)
 web_debug = False #仅调试网页，不加载模型
 def parse_img(args_param):
     folder_name = args_param['filename']
@@ -27,44 +29,43 @@ def parse_img(args_param):
         folder_name = folder_name.split('.')[0]
 
     picture_num = inference(detector_model)
-    current_directory = os.path.dirname(os.path.abspath(__file__))
+    
     with open(f'{current_directory}/output/output.txt', 'w', encoding='utf-8') as f:
+        infer_text_lst = []
         for i in range(picture_num):
             image_path = f'./output/cut_image_{i}.png'
             if not os.path.exists(image_path):
                 continue
-            infer_text = mocr(image_path)
-            if len(infer_text) == 1:
+            infer_text_lst.append(mocr(image_path))
+        copy_lst = infer_text_lst.copy()
+        for text in infer_text_lst:
+            for compare_text in infer_text_lst:
+                if text == compare_text:
+                    continue
+                if text in compare_text and len(compare_text) > len(text):
+                    copy_lst.remove(text)
+                    break
+        for infer_text in copy_lst:
+            if len(infer_text) <= 1:
                 continue
             f.write(infer_text+'\n')
-            f.write('请分析此日语句子的语法并为汉字标注假名：' + infer_text + '\n')
-    with open(f'{current_directory}/store/saved.json', 'r+', encoding='utf-8') as f:
-        # 将文件指针移到文件开头
-        f.seek(0)
-        # 复制output文件夹到store
-        source_folder = f'{current_directory}/output'
-        destination_folder = f'{current_directory}/store/{folder_name}'
-        os.makedirs(destination_folder)
-        shutil.copytree(source_folder, destination_folder, dirs_exist_ok=True)
-        data = json.load(f)
-        info = {
-            'folder_name' : folder_name,
-            'img_num' : picture_num-1,
-            'create_time' : time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
-            'author_name' : args_param['authorname'],
-            'source_url' : args_param['sourceurl']
-        }
-        if 'files' in data:
-            data['files'].append(info)
-        else:
-            data['files'] = [info]
-        # 将文件指针移到文件开头，准备覆盖原有数据
-        f.seek(0)
-        # 清空文件内容
-        f.truncate()
-        
-        # 写入更新后的数据
-        json.dump(data, f, ensure_ascii=False, indent=4)
+            f.write('请分析此日语句子的语法并为汉字标注假名并翻译句子：' + infer_text + '\n')
+    # 复制output到store 
+    source_folder = f'{current_directory}/output'
+    destination_folder = f'{current_directory}/store/{folder_name}'
+    os.makedirs(destination_folder)
+    shutil.copytree(source_folder, destination_folder, dirs_exist_ok=True)
+    session = Session()
+    session.add(Gallery(
+        folder_name = folder_name,
+        img_num = picture_num-1,
+        create_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
+        author_name = args_param['authorname'],
+        source_url = args_param['sourceurl']
+    ))
+    session.commit()
+    session.close()
+
 def generate_thumbnail(filename):
     # 读取图片
     img = cv2.imread('./input/'+filename)
@@ -143,11 +144,18 @@ def uploadPage():
     return template.render(url=ip+'/upload')
 @app.route('/gallery', methods=['GET'])
 def galleryPage():
-    with open('./store/saved.json', 'r', encoding='utf-8') as f:
-        f.seek(0)
-        images_data = json.load(f)
+    page = request.args.get('page', default=1, type=int)
+    page_size = request.args.get('pageSize', default=10, type=int)
+    offset = (page - 1) * page_size
+    session = Session()
+    images_column = session.query(Gallery).limit(page_size).offset(offset).all()
+    images_data = [i.__dict__ for i in images_column]
+    total_items = session.query(Gallery).count()
+    total_pages = (total_items + page_size - 1) // page_size
+    session.close()
     template = env.get_template('gallery.html')
-    return template.render(images_data = images_data['files'])
+    print(images_data)
+    return template.render(images_data = images_data, total_pages = total_pages, page = page, url_for = url_for)
 @app.route('/output/<filename>')
 def uploaded_file(filename):
     return send_from_directory('output', filename)
@@ -155,13 +163,8 @@ def uploaded_file(filename):
 def gallery_file(filename):
     # todo : filename中含有..时会被黑
     return send_from_directory('store', filename)
-# @app.route('/infer', methods=['POST'])
-# def infer():
-#     i = request.values.get('i')
-#     text = mocr(f'./temp/{i}.jpg')
-#     return text, 200
 if not web_debug:
     mocr = MangaOcr()
     detector_model = init()
 CORS(app)
-app.run(host='0.0.0.0', debug=True)
+app.run(host='0.0.0.0', debug=False, use_reloader=False)

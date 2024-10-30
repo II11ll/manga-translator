@@ -9,3 +9,4 @@ comic-text-detector/data/comictextdetector.pt
 comic-text-detector/data/comictextdetector.pt.onnx
 store/
 deprecated/
+test.py
