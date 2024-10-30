@@ -3,7 +3,7 @@
 {% block content %}
 <div class="row">
     {% for image in images_data %}
-    <div class="col-md-4 col-sm-6 mb-4">
+    <div class="col-6 col-md-6 col-lg-4 mb-4">
         <div class="card">
             <img src="store/{{image['folder_name']}}/thumbnail.jpg" class="card-img-top" alt="{{ image['folder_name'] }}" loading="lazy">
             <div class="card-body">
@@ -12,6 +12,9 @@
             </div>
         </div>
     </div>
+    {% if loop.index0 % 2 == 1 %}
+    <div class="w-100"></div>
+    {% endif %}
     {% endfor %}
     <!-- 分页组件 -->
     <nav aria-label="Page navigation">

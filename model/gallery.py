@@ -10,3 +10,4 @@ class Gallery(Base):
     create_time = Column(Text)
     author_name = Column(Text)
     source_url = Column(Text)
+    pic_md = Column(Text) # 图片的md5值

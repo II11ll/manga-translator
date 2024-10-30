@@ -5,6 +5,7 @@ __pycache__/
 util/
 input/
 output/
+stash/
 comic-text-detector/data/comictextdetector.pt
 comic-text-detector/data/comictextdetector.pt.onnx
 store/
