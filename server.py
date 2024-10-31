@@ -16,6 +16,8 @@ from sqlalchemy import create_engine, exists
 from model.gallery import Gallery
 from sqlalchemy.orm import sessionmaker
 import hashlib
+import json
+from PIL import Image
 app = Flask(__name__)
 app.config['OUTPUT_FOLDER'] = 'output'
 env = Environment(loader=FileSystemLoader('templates'))
@@ -154,18 +156,30 @@ def upload_file():
         thread = threading.Thread(target=parse_img, args=(args_param_lst,))
         thread.start()
     return '上传成功', 200
+# todo 网页加载到手机浏览器会缩放，点击复制的位置是绝对布局，缩放后位置可能会不对
+# 这里将img固定为1280px,然后按照图片宽度缩放
+# 根据宽度缩放的话可能会出现长度不对应，但因为文本框一般是竖排，偏差一点影响不大
+def get_device_adjusted_coordinates(img_width, xyxy):
+    scale =  1280 / img_width
+    return [coord * scale for coord in xyxy]
 @app.route('/getOutput', methods=['GET'])
 def getOutput():
     folder = request.args.get('folder', default=None, type=str)
     if folder:
+        json_name = folder
         folder = 'store/' + folder
     else:
         folder = 'output'
-    with open(f'./{folder}/output.txt', 'r', encoding='utf-8') as f:
+        # todo 不输入folder时从文件夹读取唯一的json文件获取其文件名
+        json_files = [item for item in os.listdir('./output') if item.endswith('.json')]
+        json_name = json_files[0].split('.')[0]
+    with open(f'./{folder}/output.txt', 'r', encoding='utf-8') as f, \
+        open(f'./{folder}/{json_name}.json', 'r', encoding='utf-8') as f2:
         #env.filters['replacenewline'] = lambda s: s.replace('\n','')
         template = env.get_template('output.html')
         output = []
         dic = {}
+        areas = json.load(f2)
         for index, line in enumerate(f.readlines()):
             if index % 2 == 0:
                 dic = {}
@@ -173,6 +187,10 @@ def getOutput():
                 dic['original'] = line.replace('\n','')
             else:
                 dic['prompt'] = line.replace('\n','')
+                with Image.open(f'./{folder}/labeled.png') as img:
+                    # 获取图片的宽度和高度
+                    width, height = img.size
+                dic['xyxy'] = get_device_adjusted_coordinates(width, areas[index // 2]['xyxy'])
                 output.append(dic)
         return template.render(output = output, folder = folder)
 @app.route('/upload', methods=['GET'])
