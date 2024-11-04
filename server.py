@@ -12,7 +12,7 @@ sys.path.append('detector')
 from detector import inference, init
 import cv2
 import re
-from sqlalchemy import create_engine, exists
+from sqlalchemy import create_engine
 from model.gallery import Gallery
 from sqlalchemy.orm import sessionmaker
 import hashlib

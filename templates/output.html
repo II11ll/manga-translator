@@ -4,7 +4,27 @@
 <meta charset="UTF-8">
 <title>Output</title>
 <script>
-function copyText(text) {
+// 初始化一个计数器
+let clickCount = 0;
+// 设置两次点击的时间间隔阈值（例如：500毫秒）
+const doubleClickThreshold = 2000;
+// 记录上一次点击的时间
+let lastClickTime = 0;
+function copyText(text, prompt) {
+    let currentTime = new Date().getTime();
+    // 检查是否是快速连续点击（双击）
+    if (currentTime - lastClickTime < doubleClickThreshold) {
+        // 如果是双击，则复制其他内容
+        text = prompt;
+        // 重置点击计数器
+        clickCount = 0;
+    } else {
+        // 如果不是双击，增加点击计数器
+        clickCount++;
+    }
+    // 更新上一次点击时间
+    lastClickTime = currentTime;
+    // Clipboard API只能在HTTPS中使用
     // 创建一个临时的textarea元素用于复制
     var textArea = document.createElement("textarea");
     textArea.value = text;
@@ -17,6 +37,7 @@ function copyText(text) {
         console.error('Oops, unable to copy', err);
     }
     document.body.removeChild(textArea);
+    
 }
 function getDeviceAdjustedCoordinates(originalCoordinates) {
   var scale = window.innerWidth / document.documentElement.clientWidth;
@@ -46,13 +67,13 @@ function getDeviceAdjustedCoordinates(originalCoordinates) {
                     <a href="#item-{{ item['index'] }}"><span class="badge badge-primary">{{ item['index'] }}</span></a>
                   </div>
                   <div class="col-11">
-                    <p onclick="copyText('{{ item['original'] }}');">{{ item['original'] }}</p>
-                    <p onclick="copyText('{{ item['prompt'] }}');">{{ item['prompt'] }}</p>
+                    <p onclick="copyText('{{ item['original'] }}','{{ item['prompt'] }}');">{{ item['original'] }}</p>
+                    <p onclick="copyText('{{ item['original'] }}','{{ item['prompt'] }}');">{{ item['prompt'] }}</p>
                   </div>
                 </div>
                 <div class="coordinate-region"
                   style="left: {{ item.xyxy[0] }}px; top: {{ item.xyxy[1] }}px; width: {{ item.xyxy[2] - item.xyxy[0] }}px; height: {{ item.xyxy[3] - item.xyxy[1] }}px;"
-                  onclick="copyText('{{ item['original'] }}');"></div>
+                  onclick="copyText('{{ item['original'] }}','{{ item['prompt'] }}');"></div>
 
             {% endfor %}
           </div>
