@@ -4,26 +4,28 @@
 <meta charset="UTF-8">
 <title>Output</title>
 <script>
-// 初始化一个计数器
-let clickCount = 0;
 // 设置两次点击的时间间隔阈值（例如：500毫秒）
-const doubleClickThreshold = 2000;
+const doubleClickThreshold = 1500;
 // 记录上一次点击的时间
 let lastClickTime = 0;
+let lastText = '';
 function copyText(text, prompt) {
     let currentTime = new Date().getTime();
-    // 检查是否是快速连续点击（双击）
+    // 检查是否是快速连续点击元素（双击）
     if (currentTime - lastClickTime < doubleClickThreshold) {
-        // 如果是双击，则复制其他内容
+      if(text === lastText){
+        // 如果是双击同一个元素，则复制prompt
         text = prompt;
-        // 重置点击计数器
-        clickCount = 0;
+      }else{
+        // 如果是双击不同元素，则拼接复制(因为有的一句话被分为了两个文本框)
+        text = lastText + text;
+      }
     } else {
-        // 如果不是双击，增加点击计数器
-        clickCount++;
+
     }
     // 更新上一次点击时间
     lastClickTime = currentTime;
+    lastText = text;
     // Clipboard API只能在HTTPS中使用
     // 创建一个临时的textarea元素用于复制
     var textArea = document.createElement("textarea");

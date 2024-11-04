@@ -35,7 +35,7 @@ def clear(clearStash = False):
         for file in files:
             os.remove(os.path.join(current_directory, file))
 def upload_to_bypy(folder_name):
-    subprocess.run(['bypy','syncup', f'{folder_name}', f'bypy/store/{folder_name}'])
+    subprocess.run(['bypy','syncup', f'{current_directory}/store/{folder_name}', f'bypy/store/{folder_name}'])
 def parse_img(args_param_lst):
     # detector中是读取文件夹，然后推理文件夹里的所有图片
     # 所以要上传多图逐个识别要先存到stash，在一个个复制到input文件夹中...
