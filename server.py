@@ -177,10 +177,10 @@ def upload_file():
         thread.start()
     return '上传成功', 200
 # todo 网页加载到手机浏览器会缩放，点击复制的位置是绝对布局，缩放后位置可能会不对
-# 这里将img固定为1280px,然后按照图片宽度缩放
+# 这里将img固定为355px,然后按照图片宽度缩放
 # 根据宽度缩放的话可能会出现长度不对应，但因为文本框一般是竖排，偏差一点影响不大
 def get_device_adjusted_coordinates(img_width, xyxy):
-    scale =  1280 / img_width
+    scale =  355 / img_width
     return [coord * scale for coord in xyxy]
 @app.route('/getOutput', methods=['GET'])
 def getOutput():

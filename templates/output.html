@@ -1,8 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Output</title>
+{% extends "base.html" %}
+
+{% block script %}
 <script>
 // 设置两次点击的时间间隔阈值（例如：500毫秒）
 const doubleClickThreshold = 1500;
@@ -26,10 +24,14 @@ function copyText(text, prompt) {
     // 更新上一次点击时间
     lastClickTime = currentTime;
     lastText = text;
-    // Clipboard API只能在HTTPS中使用
+    copyToClip();
+    
+}
+function copyToClip(){
+  // Clipboard API只能在HTTPS中使用
     // 创建一个临时的textarea元素用于复制
     var textArea = document.createElement("textarea");
-    textArea.value = text;
+    textArea.value = lastText;
     document.body.appendChild(textArea);
     textArea.select();
     try {
@@ -39,61 +41,58 @@ function copyText(text, prompt) {
         console.error('Oops, unable to copy', err);
     }
     document.body.removeChild(textArea);
-    
 }
 function getDeviceAdjustedCoordinates(originalCoordinates) {
   var scale = window.innerWidth / document.documentElement.clientWidth;
   return originalCoordinates.map(coord => coord * scale);
 }
+
 </script>
-</head>
-<body>
-    <img src="{{folder}}/labeled.png" class="img-fluid mx-auto d-block" style="width: 1280px;" loading="lazy" onerror="onerror=null;src='{{folder}}/labeled.png'"/>
-    <div class="container">
-        <div class="row">
-          {# 
-          <div class="col-3">
-            <!-- 页面右边的跳转链接 -->
-            <div id="jump-links">
-                {% for item in output %}
-                  <a href="#item-{{ item['index'] }}">{{ item['index'] }}</a><br>
-                {% endfor %}
-            </div>
-          </div>#}
-          <div class="col-9">
-            <!-- 主要内容 -->
-            {% for item in output %}
-                <div class="row" id="item-{{ item['index'] }}">
-                  <div class="col-1 text-right">
-                    <!-- 输出锚点 -->
-                    <a href="#item-{{ item['index'] }}"><span class="badge badge-primary">{{ item['index'] }}</span></a>
-                  </div>
-                  <div class="col-11">
-                    <p onclick="copyText('{{ item['original'] }}','{{ item['prompt'] }}');">{{ item['original'] }}</p>
-                    <p onclick="copyText('{{ item['original'] }}','{{ item['prompt'] }}');">{{ item['prompt'] }}</p>
-                  </div>
-                </div>
-                <div class="coordinate-region"
-                  style="left: {{ item.xyxy[0] }}px; top: {{ item.xyxy[1] }}px; width: {{ item.xyxy[2] - item.xyxy[0] }}px; height: {{ item.xyxy[3] - item.xyxy[1] }}px;"
-                  onclick="copyText('{{ item['original'] }}','{{ item['prompt'] }}');"></div>
+{% endblock %}
 
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-    <style>
-        #jump-links {
-          position: fixed;
-          right: 0px;
-          top: 50%; /* 初始位置在垂直方向中间 */
-          transform: translateY(-50%); /* 垂直居中 */
-          font-size: 60px;
-        }
-        .coordinate-region {
-          position: absolute;
-          cursor: pointer;
-      }
-      </style>
-</body>
-
-</html>
+{% block content %}
+<div class="row" style="left:0">
+  <img src="{{folder}}/labeled.png" class="static-img" loading="lazy" onerror="onerror=null;src='{{folder}}/labeled.png'"/>
+  <br>
+  <!-- 我真傻，真的...怎么没有早想到在前端加个按钮就能加前缀呢... -->
+  <button class="btn btn-primary" onclick="copyToClip();">添加前缀</button>
+  <!-- 主要内容 -->
+  {% for item in output %}
+  <div class="row" id="item-{{ item['index'] }}">
+    <div class="col-1 text-right">
+      <!-- 输出锚点 -->
+      <a href="#item-{{ item['index'] }}"><span class="badge badge-primary">{{ item['index'] }}</span></a>
+    </div>
+    <div class="col-11">
+      <p onclick="copyText('{{ item['original'] }}','{{ item['prompt'] }}');">{{ item['original'] }}</p>
+      <p onclick="copyText('{{ item['original'] }}','{{ item['prompt'] }}');">{{ item['prompt'] }}</p>
+    </div>
+  </div>
+  {# absolute的规则是通过指定元素相对于最近的非 static 定位祖先元素的偏移，来确定元素位置，所以此div要与img在同一层#}
+  <div class="coordinate-region"
+    style="left: {{ item.xyxy[0] }}px; top: {{ item.xyxy[1] }}px; width: {{ item.xyxy[2] - item.xyxy[0] }}px; height: {{ item.xyxy[3] - item.xyxy[1] }}px;"
+    onclick="copyText('{{ item['original'] }}','{{ item['prompt'] }}');"></div>
+  {% endfor %}
+{% endblock %}
+{% block style %}
+<style>
+.static-img{
+  width: 355px;
+}
+#jump-links {
+  position: fixed;
+  right: 0px;
+  top: 50%; /* 初始位置在垂直方向中间 */
+  transform: translateY(-50%); /* 垂直居中 */
+  font-size: 60px;
+}
+.coordinate-region {
+  position: absolute;
+  cursor: pointer;
+  z-index: 99;
+}
+.coordinate-region:active {
+  background-color: #f0f0f0; /* 举例，点击时的背景色 */
+}
+</style>
+{% endblock %}

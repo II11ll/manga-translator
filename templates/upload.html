@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block style %}
+<style>
 .input-clear {
     position: relative;
 }
@@ -24,8 +25,10 @@
 .input-clear.has-value .clear-btn {
     display: block; /* Show the clear button when input has value */
 }
+</style>
 {% endblock %}
 {% block script %}
+<script>
 document.addEventListener('DOMContentLoaded', function() {
     var input = document.getElementById('sourceurl');
     var clearButton = document.querySelector('#clear-sourceurl-btn');
@@ -43,6 +46,7 @@ document.addEventListener('DOMContentLoaded', function() {
         input.parentNode.classList.remove('has-value');
     });
 });
+</script>
 {% endblock %}
 {% block content %}
     <div class="container">
