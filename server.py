@@ -1,4 +1,4 @@
-from flask import Flask, request, send_from_directory, url_for
+from flask import Flask, request, send_from_directory, url_for, redirect
 from flask_cors import CORS
 import os
 import shutil
@@ -18,6 +18,7 @@ from sqlalchemy.orm import sessionmaker
 import hashlib
 import json
 from PIL import Image
+import subprocess
 app = Flask(__name__)
 app.config['OUTPUT_FOLDER'] = 'output'
 env = Environment(loader=FileSystemLoader('templates'))
@@ -33,6 +34,8 @@ def clear(clearStash = False):
         files = os.listdir(current_directory)
         for file in files:
             os.remove(os.path.join(current_directory, file))
+def upload_to_bypy(folder_name):
+    subprocess.run(['bypy','syncup', f'{folder_name}', f'bypy/store/{folder_name}'])
 def parse_img(args_param_lst):
     # detector中是读取文件夹，然后推理文件夹里的所有图片
     # 所以要上传多图逐个识别要先存到stash，在一个个复制到input文件夹中...
@@ -51,26 +54,35 @@ def parse_img(args_param_lst):
                 image_path = f'./output/cut_image_{i}.png'
                 if not os.path.exists(image_path):
                     continue
-                infer_text_lst.append(mocr(image_path))
+                infer_text = mocr(image_path)
+                if infer_text is None or len(infer_text) == 0:
+                    infer_text_lst.append('识别字符为空')
+                else:
+                    infer_text_lst.append(infer_text)
+            # 有时候会出现一句话被识别成一整段和一小段共存的情况，但有时候确实是原句子就这样写的...
+            # 如果是后一种情况，把其中一个句子去掉就会导致后面的句子位置不对
             copy_lst = infer_text_lst.copy()
-            for text in infer_text_lst:
-                for compare_text in infer_text_lst:
-                    if text == compare_text:
-                        continue
-                    if text in compare_text and len(compare_text) > len(text):
-                        copy_lst.remove(text)
-                        break
+            # for text in infer_text_lst:
+            #     for compare_text in infer_text_lst:
+            #         if text == compare_text:
+            #             continue
+            #         if text in compare_text and len(compare_text) > len(text):
+            #             copy_lst.remove(text)
+            #             break
             for infer_text in copy_lst:
-                if len(infer_text) <= 1:
-                    continue
                 f.write(infer_text+'\n')
                 f.write('请分析此日语句子的语法并为汉字标注假名并翻译句子：' + infer_text + '\n')
+        if args_param['notsave']:
+            continue
         generate_thumbnail(args_param['filename'])
         # 复制output到store 
         source_folder = f'{current_directory}/output'
         destination_folder = f'{current_directory}/store/{folder_name}'
         os.makedirs(destination_folder)
         shutil.copytree(source_folder, destination_folder, dirs_exist_ok=True)
+        # 上传至百度网盘
+        thread = threading.Thread(target=upload_to_bypy, args=(folder_name,))
+        thread.start()
         session = Session()
         session.add(Gallery(
             folder_name = folder_name,
@@ -82,6 +94,8 @@ def parse_img(args_param_lst):
         ))
         session.commit()
         session.close()
+        # 推理完休息下，防止把内存干爆...
+        time.sleep(10)
         
         
 
@@ -122,10 +136,12 @@ def generate_md5(file_path):
 def check_file_exist(filename):
     md5_value = generate_md5('./stash/'+filename)
     session = Session()
-    return session.query(exists().where(Gallery.pic_md == md5_value)).scalar()
+    #return session.query(exists().where(Gallery.pic_md == md5_value)).scalar()
+    return session.query(Gallery).filter_by(pic_md=md5_value).first()
 @app.route('/upload', methods=['POST'])
 def upload_file():
     clear(True)
+
     # 检查是否有文件在请求中
     if 'file' not in request.files:
         return '没有文件部分', 400
@@ -136,6 +152,7 @@ def upload_file():
     files = sorted(files, key=lambda x: x.filename)
     for file in files:
         args_param = {}
+        args_param['notsave'] = 'notsave' in request.form
         if not request.form.get('filename') and len(request.form.get('filename')) > 0:
             args_param['filename'] = request.form.get('filename') + '.jpg'
         else:
@@ -145,8 +162,11 @@ def upload_file():
         if len(args_param['sourceurl']) > 0:
             args_param['sourceurl'] = find_url(args_param['sourceurl'] )
         file.save('./stash/'+args_param['filename'])
-        if check_file_exist(args_param['filename']):
-            return '上传图片已存在', 409
+        # 检查文件是否存在，批量上传有一个存在就会全部return
+        saved_img = check_file_exist(args_param['filename'])
+        if saved_img:
+            #return '上传图片已存在', 409
+            return redirect(url_for('getOutput', folder=saved_img.folder_name))
         args_param['md5'] = generate_md5('./stash/'+args_param['filename'])
         if os.path.isdir('./store'+args_param['filename'].split('.')[0]):
             return '上传文件夹名冲突', 409
@@ -212,7 +232,12 @@ def galleryPage():
     total_pages = (total_items + page_size - 1) // page_size
     session.close()
     template = env.get_template('gallery.html')
-    return template.render(images_data = images_data, total_pages = total_pages, page = page, url_for = url_for)
+    return template.render(
+        images_data = images_data, total_pages = total_pages, page = page, url_for = url_for, max=max, min=min)
+@app.route('/delete')
+def delete():
+    # todo delete
+    pass
 @app.route('/output/<filename>')
 def uploaded_file(filename):
     return send_from_directory('output', filename)
@@ -223,7 +248,9 @@ def gallery_file(filename):
 if not web_debug:
     mocr = MangaOcr()
     detector_model = init()
-CORS(app)
+#CORS(app)
+# 使用gunicorn时代码中不要运行app.run
+# gunicorn -w 1 -b 0.0.0.0:5000 server:app
 if web_debug:
     app.run(host='0.0.0.0', debug=True, use_reloader=True)
 else:

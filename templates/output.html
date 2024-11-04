@@ -28,6 +28,7 @@ function getDeviceAdjustedCoordinates(originalCoordinates) {
     <img src="{{folder}}/labeled.png" class="img-fluid mx-auto d-block" style="width: 1280px;" loading="lazy" onerror="onerror=null;src='{{folder}}/labeled.png'"/>
     <div class="container">
         <div class="row">
+          {# 
           <div class="col-3">
             <!-- 页面右边的跳转链接 -->
             <div id="jump-links">
@@ -35,7 +36,7 @@ function getDeviceAdjustedCoordinates(originalCoordinates) {
                   <a href="#item-{{ item['index'] }}">{{ item['index'] }}</a><br>
                 {% endfor %}
             </div>
-          </div>
+          </div>#}
           <div class="col-9">
             <!-- 主要内容 -->
             {% for item in output %}

@@ -1,5 +1,49 @@
 {% extends "base.html" %}
+{% block style %}
+.input-clear {
+    position: relative;
+}
 
+.input-clear input {
+    padding-right: 24px; /* Make space for the clear button */
+}
+
+.input-clear::after {
+    content: '×';
+    position: absolute;
+    right: 8px;
+    top: 0;
+    bottom: 0;
+    margin: auto;
+    font-size: 20px;
+    color: #aaa;
+    cursor: pointer;
+    display: none; /* Hide the clear button by default */
+}
+
+.input-clear.has-value .clear-btn {
+    display: block; /* Show the clear button when input has value */
+}
+{% endblock %}
+{% block script %}
+document.addEventListener('DOMContentLoaded', function() {
+    var input = document.getElementById('sourceurl');
+    var clearButton = document.querySelector('#clear-sourceurl-btn');
+
+    input.addEventListener('input', function() {
+        if (input.value.length > 0) {
+            input.parentNode.classList.add('has-value');
+        } else {
+            input.parentNode.classList.remove('has-value');
+        }
+    });
+
+    clearButton.addEventListener('click', function() {
+        input.value = '';
+        input.parentNode.classList.remove('has-value');
+    });
+});
+{% endblock %}
 {% block content %}
     <div class="container">
         <div class="row justify-content-center">
@@ -11,12 +55,21 @@
                         <input type="text" class="form-control" id="filename" name="filename" placeholder="文件名，不输入默认为上传文件名">
                         <label for="authorname">作者:</label>
                         <input type="text" class="form-control" id="authorname" name="authorname" placeholder="作者名">
-                        <label for="sourceurl">源地址:</label>
-                        <input type="text" class="form-control" id="sourceurl" name="sourceurl" placeholder="源地址">
+                        <div class="input-clear">
+                            <label for="sourceurl">源地址:</label>
+                            <input type="text" class="form-control" id="sourceurl" name="sourceurl" placeholder="源地址"> 
+                            <span id="clear-sourceurl-btn">×</span>    
+                        </div>
                     </div>
                     <div class="form-group">
                         <p>上传多个文件时，是按照上传的文件名排序</p>
                         <input type="file" class="form-control-file" name="file" accept="image/*" multiple>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="yes" id="checkbox" name="notsave">
+                        <label class="form-check-label" for="checkbox">
+                            不保存到gallery
+                        </label>
                     </div>
                     <button type="submit" class="btn btn-primary">Upload</button>
                 </form>
