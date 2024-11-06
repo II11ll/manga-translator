@@ -7,13 +7,13 @@ const doubleClickThreshold = 1500;
 // 记录上一次点击的时间
 let lastClickTime = 0;
 let lastText = '';
-function copyText(text, prompt) {
+function copyText(text) {
     let currentTime = new Date().getTime();
     // 检查是否是快速连续点击元素（双击）
     if (currentTime - lastClickTime < doubleClickThreshold) {
       if(text === lastText){
         // 如果是双击同一个元素，则复制prompt
-        text = prompt;
+        text = '请分析此日语句子的语法并为汉字标注假名和罗马音，最后翻译整个句子：' + text;
       }else{
         // 如果是双击不同元素，则拼接复制(因为有的一句话被分为了两个文本框)
         text = lastText + text;
@@ -27,11 +27,11 @@ function copyText(text, prompt) {
     copyToClip();
     
 }
-function copyToClip(){
+function copyToClip(prefix = ''){
   // Clipboard API只能在HTTPS中使用
     // 创建一个临时的textarea元素用于复制
     var textArea = document.createElement("textarea");
-    textArea.value = lastText;
+    textArea.value = prefix + lastText;
     document.body.appendChild(textArea);
     textArea.select();
     try {
@@ -51,11 +51,11 @@ function getDeviceAdjustedCoordinates(originalCoordinates) {
 {% endblock %}
 
 {% block content %}
-<div class="row" style="left:0">
-  <img src="{{folder}}/labeled.png" class="static-img" loading="lazy" onerror="onerror=null;src='{{folder}}/labeled.png'"/>
-  <br>
+  <div>
+    <img src="{{folder}}/labeled.png" class="static-img" loading="lazy" onerror="onerror=null;src='{{folder}}/labeled.png'"/>
+  </div>
   <!-- 我真傻，真的...怎么没有早想到在前端加个按钮就能加前缀呢... -->
-  <button class="btn btn-primary" onclick="copyToClip();">添加前缀</button>
+  <button class="btn btn-primary" onclick="copyToClip('请分析此日语句子的语法并为汉字标注假名和罗马音，最后翻译整个句子：');">添加前缀</button>
   <!-- 主要内容 -->
   {% for item in output %}
   <div class="row" id="item-{{ item['index'] }}">
@@ -64,14 +64,14 @@ function getDeviceAdjustedCoordinates(originalCoordinates) {
       <a href="#item-{{ item['index'] }}"><span class="badge badge-primary">{{ item['index'] }}</span></a>
     </div>
     <div class="col-11">
-      <p onclick="copyText('{{ item['original'] }}','{{ item['prompt'] }}');">{{ item['original'] }}</p>
-      <p onclick="copyText('{{ item['original'] }}','{{ item['prompt'] }}');">{{ item['prompt'] }}</p>
+      <p onclick="copyText('{{ item['original'] }}');">{{ item['original'] }}</p>
+      <p onclick="copyText('{{ item['original'] }}');">{{ item['prompt'] }}</p>
     </div>
   </div>
   {# absolute的规则是通过指定元素相对于最近的非 static 定位祖先元素的偏移，来确定元素位置，所以此div要与img在同一层#}
   <div class="coordinate-region"
     style="left: {{ item.xyxy[0] }}px; top: {{ item.xyxy[1] }}px; width: {{ item.xyxy[2] - item.xyxy[0] }}px; height: {{ item.xyxy[3] - item.xyxy[1] }}px;"
-    onclick="copyText('{{ item['original'] }}','{{ item['prompt'] }}');"></div>
+    onclick="copyText('{{ item['original'] }}');"></div>
   {% endfor %}
 {% endblock %}
 {% block style %}
@@ -93,6 +93,10 @@ function getDeviceAdjustedCoordinates(originalCoordinates) {
 }
 .coordinate-region:active {
   background-color: #f0f0f0; /* 举例，点击时的背景色 */
+}
+.container {
+  margin-left: 0px;
+  padding-left: 0px;
 }
 </style>
 {% endblock %}

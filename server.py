@@ -26,6 +26,17 @@ current_directory = os.path.dirname(os.path.abspath(__file__))
 engine = create_engine(f'sqlite:////{current_directory}/store/saved.db')
 Session = sessionmaker(bind=engine)
 web_debug = False #仅调试网页，不加载模型
+allowed_ip = []
+with open(f'{current_directory}/store/password.txt') as f:
+    ip_password = f.readline().strip()
+def limit_ip_address(func):
+    def wrapper(*args, **kwargs):
+        if request.remote_addr not in allowed_ip:
+            return 'Forbidden', 403  
+        return func(*args, **kwargs)
+    wrapper.__name__ = func.__name__
+    wrapper.__doc__ = func.__doc__
+    return wrapper
 def clear(clearStash = False):
     current_directorys = ["./input","./output"]
     if clearStash:
@@ -71,7 +82,7 @@ def parse_img(args_param_lst):
             #             break
             for infer_text in copy_lst:
                 f.write(infer_text+'\n')
-                f.write('请分析此日语句子的语法并为汉字标注假名并翻译句子：' + infer_text + '\n')
+                f.write('请分析此日语句子的语法并为汉字标注假名和罗马音，最后翻译整个句子：' + infer_text + '\n')
         if args_param['notsave']:
             continue
         generate_thumbnail(args_param['filename'])
@@ -139,6 +150,7 @@ def check_file_exist(filename):
     #return session.query(exists().where(Gallery.pic_md == md5_value)).scalar()
     return session.query(Gallery).filter_by(pic_md=md5_value).first()
 @app.route('/upload', methods=['POST'])
+@limit_ip_address
 def upload_file():
     clear(True)
 
@@ -183,6 +195,7 @@ def get_device_adjusted_coordinates(img_width, xyxy):
     scale =  355 / img_width
     return [coord * scale for coord in xyxy]
 @app.route('/getOutput', methods=['GET'])
+@limit_ip_address
 def getOutput():
     folder = request.args.get('folder', default=None, type=str)
     if folder:
@@ -214,6 +227,7 @@ def getOutput():
                 output.append(dic)
         return template.render(output = output, folder = folder)
 @app.route('/upload', methods=['GET'])
+@limit_ip_address
 def uploadPage():
     config = configparser.ConfigParser()
     config.read('config.ini')
@@ -221,6 +235,7 @@ def uploadPage():
     template = env.get_template('upload.html')
     return template.render(url=ip+'/upload')
 @app.route('/gallery', methods=['GET'])
+@limit_ip_address
 def galleryPage():
     page = request.args.get('page', default=1, type=int)
     page_size = request.args.get('pageSize', default=10, type=int)
@@ -235,16 +250,31 @@ def galleryPage():
     return template.render(
         images_data = images_data, total_pages = total_pages, page = page, url_for = url_for, max=max, min=min)
 @app.route('/delete')
+@limit_ip_address
 def delete():
     # todo delete
     pass
 @app.route('/output/<filename>')
+@limit_ip_address
 def uploaded_file(filename):
-    return send_from_directory('output', filename)
+    response = send_from_directory('output', filename)
+    response.cache_control.max_age = 31536000
+    return response
 @app.route('/store/<path:filename>')
+@limit_ip_address
 def gallery_file(filename):
     # todo : filename中含有..时会越权访问
-    return send_from_directory('store', filename)
+    response = send_from_directory('store', filename)
+    if filename.endswith(('.png', '.jpg')):
+        response.cache_control.max_age = 86400
+    return response
+@app.route('/registerIP', methods=['GET'])
+def register_ip():
+    password = request.args.get('password', default='', type=str)
+    if password == ip_password:
+        allowed_ip.append(request.remote_addr)
+        return redirect(url_for('galleryPage'))
+    return 'Forbidden', 403  
 if not web_debug:
     mocr = MangaOcr()
     detector_model = init()
