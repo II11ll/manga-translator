@@ -14,6 +14,7 @@ import cv2
 import re
 from sqlalchemy import create_engine
 from model.gallery import Gallery
+from model.block import Block
 from sqlalchemy.orm import sessionmaker
 import hashlib
 import json
@@ -31,7 +32,7 @@ with open(f'{current_directory}/store/password.txt') as f:
     ip_password = f.readline().strip()
 def limit_ip_address(func):
     def wrapper(*args, **kwargs):
-        if request.remote_addr not in allowed_ip:
+        if request.remote_addr not in allowed_ip and not web_debug:
             return 'Forbidden', 403  
         return func(*args, **kwargs)
     wrapper.__name__ = func.__name__
@@ -59,52 +60,71 @@ def parse_img(args_param_lst):
 
         picture_num = inference(detector_model)
         
-        with open(f'{current_directory}/output/output.txt', 'w', encoding='utf-8') as f:
-            infer_text_lst = []
-            for i in range(picture_num):
-                image_path = f'./output/cut_image_{i}.png'
-                if not os.path.exists(image_path):
-                    continue
-                infer_text = mocr(image_path)
-                if infer_text is None or len(infer_text) == 0:
-                    infer_text_lst.append('识别字符为空')
-                else:
-                    infer_text_lst.append(infer_text)
-            # 有时候会出现一句话被识别成一整段和一小段共存的情况，但有时候确实是原句子就这样写的...
-            # 如果是后一种情况，把其中一个句子去掉就会导致后面的句子位置不对
-            copy_lst = infer_text_lst.copy()
-            # for text in infer_text_lst:
-            #     for compare_text in infer_text_lst:
-            #         if text == compare_text:
-            #             continue
-            #         if text in compare_text and len(compare_text) > len(text):
-            #             copy_lst.remove(text)
-            #             break
-            for infer_text in copy_lst:
-                f.write(infer_text+'\n')
-                f.write('请分析此日语句子的语法并为汉字标注假名和罗马音，最后翻译整个句子：' + infer_text + '\n')
-        if args_param['notsave']:
-            continue
-        generate_thumbnail(args_param['filename'])
-        # 复制output到store 
-        source_folder = f'{current_directory}/output'
+        infer_text_lst = []
+        for i in range(picture_num):
+            image_path = f'./output/cut_image_{i}.png'
+            if not os.path.exists(image_path):
+                continue
+            infer_text = mocr(image_path)
+            if infer_text is None or len(infer_text) == 0:
+                infer_text_lst.append('识别字符为空')
+            else:
+                infer_text_lst.append(infer_text)
+        
         destination_folder = f'{current_directory}/store/{folder_name}'
+        if os.path.exists(destination_folder):
+            subprocess.run(['rm','-rf',destination_folder])
+            session = Session()
+            gallery = session.query(Gallery).filter(Gallery.folder_name==destination_folder).one_or_none()
+            if gallery:
+                session.delete(gallery)
+            session.commit()
+            session.close()
+        source_folder = f'{current_directory}/output'
         os.makedirs(destination_folder)
         shutil.copytree(source_folder, destination_folder, dirs_exist_ok=True)
-        # 上传至百度网盘
-        thread = threading.Thread(target=upload_to_bypy, args=(folder_name,))
-        thread.start()
+
+        generate_thumbnail(args_param['filename'])
+        
         session = Session()
-        session.add(Gallery(
-            folder_name = folder_name,
-            img_num = picture_num-1,
-            create_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
-            author_name = args_param['authorname'],
-            source_url = args_param['sourceurl'],
-            pic_md = args_param['md5']
-        ))
-        session.commit()
-        session.close()
+        with open(f'{current_directory}/store/{folder_name}/{folder_name}.json', 'r', encoding = 'utf-8') as f,\
+            open(f'{current_directory}/store/{folder_name}/line-{folder_name}.txt', 'r', encoding = 'utf-8') as f2,\
+            Image.open(f'{current_directory}/store/{folder_name}/{folder_name}.png') as img:
+            width, height = img.size
+            gallery = Gallery(
+                folder_name = folder_name,
+                img_num = picture_num-1,
+                create_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
+                author_name = args_param['authorname'],
+                source_url = args_param['sourceurl'],
+                pic_md = args_param['md5'],
+                location_json = json.load(f),
+                line_txt = ''.join(f2.readlines()),
+                width = width,
+                height = height
+            )
+            session.add(gallery)
+            session.flush()
+            for index, infer_text in enumerate(infer_text_lst):
+                add_block = Block(
+                    gallery = gallery,
+                    index = index,
+                    original = infer_text.replace('\n','')
+                )
+                session.add(add_block)
+            session.commit()
+            session.close()
+        # 删除多余文件
+        white_list = ['thumbnail.jpg', 'labeled.png',f'{folder_name}.png']
+        for file in os.listdir(f'{current_directory}/store/{folder_name}'):
+            if file not in white_list:
+                delete_path = f'{current_directory}/store/{folder_name}/{file}'
+                if os.path.exists(delete_path):
+                    os.remove(delete_path)
+        if not args_param['notsave']:
+            # 上传至百度网盘
+            thread = threading.Thread(target=upload_to_bypy, args=(folder_name,))
+            thread.start()
         # 推理完休息下，防止把内存干爆...
         time.sleep(10)
         
@@ -166,9 +186,11 @@ def upload_file():
         args_param = {}
         args_param['notsave'] = 'notsave' in request.form
         if not request.form.get('filename') and len(request.form.get('filename')) > 0:
-            args_param['filename'] = request.form.get('filename') + '.jpg'
+            args_param['filename'] = request.form.get('filename') + '.png'
         else:
             args_param['filename'] = file.filename
+        if args_param['notsave']:
+            args_param['filename'] = 'output.png' 
         args_param['authorname'] = request.form.get('authorname', '')
         args_param['sourceurl'] = request.form.get('sourceurl', '')
         if len(args_param['sourceurl']) > 0:
@@ -180,8 +202,8 @@ def upload_file():
             #return '上传图片已存在', 409
             return redirect(url_for('getOutput', folder=saved_img.folder_name))
         args_param['md5'] = generate_md5('./stash/'+args_param['filename'])
-        if os.path.isdir('./store'+args_param['filename'].split('.')[0]):
-            return '上传文件夹名冲突', 409
+        # if os.path.isdir('./store'+args_param['filename'].split('.')[0]):
+        #     return '上传文件夹名冲突', 409
         args_param_lst.append(args_param)
     # 时间太长，开个线程
     if not web_debug:
@@ -197,35 +219,26 @@ def get_device_adjusted_coordinates(img_width, xyxy):
 @app.route('/getOutput', methods=['GET'])
 @limit_ip_address
 def getOutput():
-    folder = request.args.get('folder', default=None, type=str)
-    if folder:
-        json_name = folder
-        folder = 'store/' + folder
-    else:
-        folder = 'output'
-        # todo 不输入folder时从文件夹读取唯一的json文件获取其文件名
-        json_files = [item for item in os.listdir('./output') if item.endswith('.json')]
-        json_name = json_files[0].split('.')[0]
-    with open(f'./{folder}/output.txt', 'r', encoding='utf-8') as f, \
-        open(f'./{folder}/{json_name}.json', 'r', encoding='utf-8') as f2:
-        #env.filters['replacenewline'] = lambda s: s.replace('\n','')
-        template = env.get_template('output.html')
-        output = []
+    folder = request.args.get('folder', default='output', type=str)
+    template = env.get_template('output.html')
+
+    session = Session()
+    gallery = session.query(Gallery).filter(Gallery.folder_name == folder).one()
+    if gallery == None:
+        return 'Not found', 404
+    block_lst = session.query(Block).filter(Block.gallery == gallery).all()
+    output = []
+    areas = gallery.location_json
+    for block in block_lst:
         dic = {}
-        areas = json.load(f2)
-        for index, line in enumerate(f.readlines()):
-            if index % 2 == 0:
-                dic = {}
-                dic['index'] = index // 2
-                dic['original'] = line.replace('\n','')
-            else:
-                dic['prompt'] = line.replace('\n','')
-                with Image.open(f'./{folder}/labeled.png') as img:
-                    # 获取图片的宽度和高度
-                    width, height = img.size
-                dic['xyxy'] = get_device_adjusted_coordinates(width, areas[index // 2]['xyxy'])
-                output.append(dic)
-        return template.render(output = output, folder = folder)
+        dic['index'] = block.index
+        dic['original'] = block.original
+        dic['xyxy'] = get_device_adjusted_coordinates(
+            gallery.width,
+            areas[block.index]['xyxy'])
+        output.append(dic)
+    session.close()
+    return template.render(output = output, folder = 'store/' + folder)
 @app.route('/upload', methods=['GET'])
 @limit_ip_address
 def uploadPage():

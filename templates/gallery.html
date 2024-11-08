@@ -47,12 +47,12 @@
             <li class="page-item">
                 <a class="page-link" href="{{ url_for('galleryPage', page=page+1) }}">下</a>
             </li>
-            {% endif %}
-        
             <!-- 尾页链接 -->
             <li class="page-item">
                 <a class="page-link" href="{{ url_for('galleryPage', page=total_pages) }}">尾</a>
             </li>
+            {% endif %}
+        
             <!-- 跳转输入框和按钮 -->
             <li class="page-item">
                 <form action="{{ url_for('galleryPage') }}" method="get" style="display:flex;">
