@@ -47,12 +47,45 @@ function getDeviceAdjustedCoordinates(originalCoordinates) {
   return originalCoordinates.map(coord => coord * scale);
 }
 
+function collapse(elementIndex){
+  $('#translation-textarea-'+elementIndex).css('height', '100px');
+  $('#ai-generate-textarea-'+elementIndex).css('height', '100px');
+}
+function unCollapse(elementIndex){
+  let translationId = '#translation-textarea-'+elementIndex;
+  let aiGenerateId = '#ai-generate-textarea-'+elementIndex
+  $(translationId).css('height', '30px');
+  $(aiGenerateId).css('height', '30px');
+
+  let newTranslation = $(translationId).val();
+  let newAiGenerate = $(aiGenerateId).val();
+  if(newTranslation !== output[elementIndex]['translation'] || newAiGenerate !== output[elementIndex]['ai_generate']){
+    output[elementIndex]['translation'] = newTranslation
+    output[elementIndex]['ai_generate'] = newAiGenerate
+ 
+    fetch(updateURL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body:JSON.stringify(output[elementIndex])
+    }).then(response => response.json())
+    .then(json => console.log('Success:', json))
+    .catch((error) => console.error('Error:', error));
+  }
+
+
+}
 </script>
 {% endblock %}
 
 {% block content %}
+  <script>
+    const output = JSON.parse('{{ output|tojson|safe }}');
+    const updateURL = '{{updateURL}}';
+  </script>
   <div>
-    <img src="{{folder}}/labeled.png" class="static-img" loading="lazy"/>
+    <img src="{{img_name}}" class="static-img" loading="lazy"/>
   </div>
   <!-- 我真傻，真的...怎么没有早想到在前端加个按钮就能加前缀呢... -->
   <button class="btn btn-primary" onclick="copyToClip('请分析此日语句子的语法并为汉字标注假名和罗马音，最后翻译整个句子：');">添加前缀</button>
@@ -65,6 +98,8 @@ function getDeviceAdjustedCoordinates(originalCoordinates) {
     </div>
     <div class="col-11">
       <p onclick="copyText('{{ item['original'] }}');">{{ item['original'] }}</p>
+      <textarea id="translation-textarea-{{ item['index'] }}" class="form-control collapsible-textarea" rows="1" placeholder="翻译" onfocus="collapse('{{ item['index'] }}')" onblur="unCollapse('{{ item['index'] }}')">{{item['translation']}}</textarea>
+      <textarea id="ai-generate-textarea-{{ item['index'] }}" class="form-control collapsible-textarea" rows="1" placeholder="ai生成解释" onfocus="collapse('{{ item['index'] }}')" onblur="unCollapse('{{ item['index'] }}')">{{item['ai_generate']}}</textarea>
     </div>
   </div>
   {# absolute的规则是通过指定元素相对于最近的非 static 定位祖先元素的偏移，来确定元素位置，所以此div要与img在同一层#}
@@ -96,6 +131,11 @@ function getDeviceAdjustedCoordinates(originalCoordinates) {
 .container {
   margin-left: 0px;
   padding-left: 0px;
+}
+.collapsible-textarea {
+  height: 30px; /* 初始最大高度 */
+  overflow: hidden; /* 隐藏溢出的内容 */
+  transition: max-height 0.5s ease-in-out; /* 平滑过渡效果 */
 }
 </style>
 {% endblock %}

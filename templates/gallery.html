@@ -36,9 +36,9 @@
             {% endif %}
         
             <!-- 中间页码 -->
-            {% for page in range(max(1, page-2), min(total_pages, page+3)+1) %}
-            <li class="page-item {% if page == page %}active{% endif %}">
-                <a class="page-link" href="{{ url_for('galleryPage', page=page) }}">{{ page }}</a>
+            {% for pageIndex in range(max(1, page-2), min(total_pages, page+3)) %}
+            <li class="page-item {% if page == pageIndex %}active{% endif %}">
+                <a class="page-link" href="{{ url_for('galleryPage', page=pageIndex) }}">{{ pageIndex }}</a>
             </li>
             {% endfor %}
         

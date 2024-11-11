@@ -1,4 +1,4 @@
-from flask import Flask, request, send_from_directory, url_for, redirect
+from flask import Flask, request, send_from_directory, url_for, redirect, jsonify
 from flask_cors import CORS
 import os
 import shutil
@@ -15,7 +15,7 @@ import re
 from sqlalchemy import create_engine
 from model.gallery import Gallery
 from model.block import Block
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, class_mapper
 import hashlib
 import json
 from PIL import Image
@@ -75,16 +75,18 @@ def parse_img(args_param_lst):
         if os.path.exists(destination_folder):
             subprocess.run(['rm','-rf',destination_folder])
             session = Session()
-            gallery = session.query(Gallery).filter(Gallery.folder_name==destination_folder).one_or_none()
+            gallery = session.query(Gallery).filter(Gallery.folder_name==folder_name).one_or_none()
             if gallery:
+                for block in gallery.blocks:
+                    session.delete(block)
                 session.delete(gallery)
             session.commit()
             session.close()
         source_folder = f'{current_directory}/output'
+        generate_thumbnail(args_param['filename'])
         os.makedirs(destination_folder)
         shutil.copytree(source_folder, destination_folder, dirs_exist_ok=True)
 
-        generate_thumbnail(args_param['filename'])
         
         session = Session()
         with open(f'{current_directory}/store/{folder_name}/{folder_name}.json', 'r', encoding = 'utf-8') as f,\
@@ -191,6 +193,7 @@ def upload_file():
             args_param['filename'] = file.filename
         if args_param['notsave']:
             args_param['filename'] = 'output.png' 
+        
         args_param['authorname'] = request.form.get('authorname', '')
         args_param['sourceurl'] = request.form.get('sourceurl', '')
         if len(args_param['sourceurl']) > 0:
@@ -201,6 +204,13 @@ def upload_file():
         if saved_img:
             #return '上传图片已存在', 409
             return redirect(url_for('getOutput', folder=saved_img.folder_name))
+        
+        if args_param['filename'].find('.webp') != -1:
+            with Image.open('./stash/'+args_param['filename']) as img:
+                # 转换并保存为PNG
+                args_param['filename'] = args_param['filename'].replace('.webp','.png')
+                img.save('./stash/'+args_param['filename'], 'PNG')
+        
         args_param['md5'] = generate_md5('./stash/'+args_param['filename'])
         # if os.path.isdir('./store'+args_param['filename'].split('.')[0]):
         #     return '上传文件夹名冲突', 409
@@ -216,6 +226,15 @@ def upload_file():
 def get_device_adjusted_coordinates(img_width, xyxy):
     scale =  355 / img_width
     return [coord * scale for coord in xyxy]
+def model_to_dict(instance):
+    # 使用class_mapper获取类的属性信息
+    mapper = class_mapper(instance.__class__)
+    # 创建一个空字典来存储结果
+    dict_representation = {}
+    # 遍历类的属性
+    for column in mapper.columns:
+        dict_representation[column.name] = getattr(instance, column.name)
+    return dict_representation
 @app.route('/getOutput', methods=['GET'])
 @limit_ip_address
 def getOutput():
@@ -230,15 +249,33 @@ def getOutput():
     output = []
     areas = gallery.location_json
     for block in block_lst:
-        dic = {}
-        dic['index'] = block.index
-        dic['original'] = block.original
+        dic = model_to_dict(block)
         dic['xyxy'] = get_device_adjusted_coordinates(
             gallery.width,
             areas[block.index]['xyxy'])
         output.append(dic)
     session.close()
-    return template.render(output = output, folder = 'store/' + folder)
+    return template.render(output = output, img_name = f'store/{folder}/{folder}.png', updateURL=url_for('updateBlockInfo'))
+@app.route('/updateBlockInfo', methods=['POST'])
+@limit_ip_address
+def updateBlockInfo():
+    # 确保请求包含JSON数据
+    if request.is_json:
+        # 获取JSON数据
+        data = request.get_json()
+        session = Session()
+        block = session.query(Block).filter(Block.id == data['id']).first()
+        block.translation = data['translation']
+        block.ai_generate = data['ai_generate']
+        session.commit()
+        session.close()
+        
+        # 可以返回一个响应，例如确认消息
+        return jsonify({"message": "Data received successfully", "data": data}), 200
+    else:
+        # 如果请求不包含JSON数据，返回错误
+        return jsonify({"error": "Request must be JSON"}), 400
+    pass
 @app.route('/upload', methods=['GET'])
 @limit_ip_address
 def uploadPage():
