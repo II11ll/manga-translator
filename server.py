@@ -103,7 +103,8 @@ def parse_img(args_param_lst):
                 location_json = json.load(f),
                 line_txt = ''.join(f2.readlines()),
                 width = width,
-                height = height
+                height = height,
+                tag = ''
             )
             session.add(gallery)
             session.flush()
@@ -111,7 +112,9 @@ def parse_img(args_param_lst):
                 add_block = Block(
                     gallery = gallery,
                     index = index,
-                    original = infer_text.replace('\n','')
+                    original = infer_text.replace('\n',''),
+                    translation = '',
+                    ai_generate = ''
                 )
                 session.add(add_block)
             session.commit()
@@ -255,7 +258,11 @@ def getOutput():
             areas[block.index]['xyxy'])
         output.append(dic)
     session.close()
-    return template.render(output = output, img_name = f'store/{folder}/{folder}.png', updateURL=url_for('updateBlockInfo'))
+    gallery_input = {
+        'id' : gallery.id,
+        'tag' : gallery.tag
+    }
+    return template.render(output = output, img_name = f'store/{folder}/{folder}.png', gallery=gallery_input)
 @app.route('/updateBlockInfo', methods=['POST'])
 @limit_ip_address
 def updateBlockInfo():
@@ -275,7 +282,19 @@ def updateBlockInfo():
     else:
         # 如果请求不包含JSON数据，返回错误
         return jsonify({"error": "Request must be JSON"}), 400
-    pass
+@app.route('/updateGallery', methods=['POST'])
+@limit_ip_address
+def updateGallery():
+    if request.is_json:
+        data = request.get_json()
+        session = Session()
+        gallery = session.query(Gallery).filter(Gallery.id == data['id']).first()
+        gallery.tag = data['tag']
+        session.commit()
+        session.close()
+        return jsonify({"message": "Data received successfully", "data": data}), 200
+    else:
+        return jsonify({"error": "Request must be JSON"}), 400
 @app.route('/upload', methods=['GET'])
 @limit_ip_address
 def uploadPage():

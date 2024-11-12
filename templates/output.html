@@ -9,11 +9,12 @@ let lastClickTime = 0;
 let lastText = '';
 function copyText(text) {
     let currentTime = new Date().getTime();
+    let addPrompt = false;
     // 检查是否是快速连续点击元素（双击）
     if (currentTime - lastClickTime < doubleClickThreshold) {
       if(text === lastText){
-        // 如果是双击同一个元素，则复制prompt
-        text = '请分析此日语句子的语法并为汉字标注假名和罗马音，最后翻译整个句子：' + text;
+        // 如果是双击同一个元素，则添加prompt
+        addPrompt = true;
       }else{
         // 如果是双击不同元素，则拼接复制(因为有的一句话被分为了两个文本框)
         text = lastText + text;
@@ -24,14 +25,20 @@ function copyText(text) {
     // 更新上一次点击时间
     lastClickTime = currentTime;
     lastText = text;
-    copyToClip();
+    copyToClip(addPrompt);
     
 }
-function copyToClip(prefix = ''){
+function copyToClip(addPrompt = false){
   // Clipboard API只能在HTTPS中使用
     // 创建一个临时的textarea元素用于复制
     var textArea = document.createElement("textarea");
-    textArea.value = prefix + lastText;
+    prompt = "请分析此日语句子的语法；然后将句子中的所有汉字转换为假名后输出整个句子；最后翻译整个句子。原文如下："
+    if(addPrompt){
+      textArea.value = prompt + lastText;
+    }else{
+      textArea.value = lastText;
+    }
+    
     document.body.appendChild(textArea);
     textArea.select();
     try {
@@ -48,20 +55,22 @@ function getDeviceAdjustedCoordinates(originalCoordinates) {
 }
 
 function collapse(elementIndex){
-  $('#translation-textarea-'+elementIndex).css('height', '100px');
-  $('#ai-generate-textarea-'+elementIndex).css('height', '100px');
+  $('#translation-textarea-'+elementIndex).css('height', '60px');
+  $('#ai-generate-textarea-'+elementIndex).css('height', '200px');
 }
 function unCollapse(elementIndex){
   let translationId = '#translation-textarea-'+elementIndex;
   let aiGenerateId = '#ai-generate-textarea-'+elementIndex
   $(translationId).css('height', '30px');
-  $(aiGenerateId).css('height', '30px');
+  $(aiGenerateId).css('height', '60px');
 
-  let newTranslation = $(translationId).val();
-  let newAiGenerate = $(aiGenerateId).val();
+  const newTranslation = $(translationId).val();
+  
+  const newAiGenerate = $(aiGenerateId).val();
+  $(aiGenerateId).val(newAiGenerate);
   if(newTranslation !== output[elementIndex]['translation'] || newAiGenerate !== output[elementIndex]['ai_generate']){
-    output[elementIndex]['translation'] = newTranslation
-    output[elementIndex]['ai_generate'] = newAiGenerate
+    output[elementIndex]['translation'] = newTranslation;
+    output[elementIndex]['ai_generate'] = newAiGenerate;
  
     fetch(updateURL, {
       method: 'POST',
@@ -73,23 +82,36 @@ function unCollapse(elementIndex){
     .then(json => console.log('Success:', json))
     .catch((error) => console.error('Error:', error));
   }
+}
 
-
+function updateTag(){
+  gallery.tag = $('#gallery-tag').val();
+  fetch(updateGalleryURL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body:JSON.stringify(gallery)
+  }).then(response => response.json())
+  .then(json => console.log('Success:', json))
+  .catch((error) => console.error('Error:', error));
 }
 </script>
 {% endblock %}
 
 {% block content %}
   <script>
-    const output = JSON.parse('{{ output|tojson|safe }}');
-    const updateURL = '{{updateURL}}';
+    const output = {{ output }};
+    const gallery = {{gallery}};
+    const updateURL = '/updateBlockInfo';
+    const updateGalleryURL = '/updateGallery';
   </script>
   <div>
     <img src="{{img_name}}" class="static-img" loading="lazy"/>
   </div>
   <!-- 我真傻，真的...怎么没有早想到在前端加个按钮就能加前缀呢... -->
-  <button class="btn btn-primary" onclick="copyToClip('请分析此日语句子的语法并为汉字标注假名和罗马音，最后翻译整个句子：');">添加前缀</button>
-  <!-- 主要内容 -->
+  <button class="btn btn-primary" onclick="copyToClip(true);">添加前缀</button>
+  <textarea id="gallery-tag" class="form-control collapsible-textarea" rows="1" placeholder="tag" onblur="updateTag()">{{gallery.tag}}</textarea>
   {% for item in output %}
   <div class="row" id="item-{{ item['index'] }}">
     <div class="col-1 text-right">
@@ -109,7 +131,7 @@ function unCollapse(elementIndex){
   {% endfor %}
 {% endblock %}
 {% block style %}
-<style>
+<style >
 .static-img{
   width: 355px;
 }
@@ -133,9 +155,12 @@ function unCollapse(elementIndex){
   padding-left: 0px;
 }
 .collapsible-textarea {
-  height: 30px; /* 初始最大高度 */
-  overflow: hidden; /* 隐藏溢出的内容 */
+  height: 30px; 
+  overflow: hidden; 
   transition: max-height 0.5s ease-in-out; /* 平滑过渡效果 */
+  color: red !important;
+  overscroll-behavior-y: contain;
+  overflow-y: auto;
 }
 </style>
 {% endblock %}

@@ -27,32 +27,36 @@
             <li class="page-item">
                 <a class="page-link" href="{{ url_for('galleryPage', page=1) }}">首</a>
             </li>
-        
+            {% if page > 2 %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('galleryPage', page=page-2) }}"><<</a>
+            </li>
+            {% endif %}
             <!-- 上一页链接 -->
             {% if page > 1 %}
             <li class="page-item">
-                <a class="page-link" href="{{ url_for('galleryPage', page=page-1) }}">上</a>
+                <a class="page-link" href="{{ url_for('galleryPage', page=page-1) }}"><</a>
             </li>
             {% endif %}
-        
-            <!-- 中间页码 -->
-            {% for pageIndex in range(max(1, page-2), min(total_pages, page+3)) %}
-            <li class="page-item {% if page == pageIndex %}active{% endif %}">
-                <a class="page-link" href="{{ url_for('galleryPage', page=pageIndex) }}">{{ pageIndex }}</a>
+            <li class="page-item active">
+                <a class="page-link" href="{{ url_for('galleryPage', page=page) }}">{{page}}</a>
             </li>
-            {% endfor %}
         
             <!-- 下一页链接 -->
             {% if page < total_pages %}
             <li class="page-item">
-                <a class="page-link" href="{{ url_for('galleryPage', page=page+1) }}">下</a>
+                <a class="page-link" href="{{ url_for('galleryPage', page=page+1) }}">></a>
+            </li>
+            {% endif %}
+            {% if page < total_pages-1 %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('galleryPage', page=page+2) }}">>></a>
             </li>
             <!-- 尾页链接 -->
             <li class="page-item">
                 <a class="page-link" href="{{ url_for('galleryPage', page=total_pages) }}">尾</a>
             </li>
             {% endif %}
-        
             <!-- 跳转输入框和按钮 -->
             <li class="page-item">
                 <form action="{{ url_for('galleryPage') }}" method="get" style="display:flex;">

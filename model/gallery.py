@@ -14,4 +14,5 @@ class Gallery(Base):
     line_txt = Column(Text)
     width = Column(Integer)
     height = Column(Integer)
+    tag = Column(Text)
     blocks = relationship("Block", back_populates="gallery", cascade='all, delete, delete-orphan')
