@@ -20,20 +20,24 @@ import hashlib
 import json
 from PIL import Image
 import subprocess
+current_directory = os.path.dirname(os.path.abspath(__file__))
+
 app = Flask(__name__)
 app.config['OUTPUT_FOLDER'] = 'output'
 env = Environment(loader=FileSystemLoader('templates'))
-current_directory = os.path.dirname(os.path.abspath(__file__))
+
 engine = create_engine(f'sqlite:////{current_directory}/store/saved.db')
 Session = sessionmaker(bind=engine)
 web_debug = False #仅调试网页，不加载模型
-allowed_ip = []
+config = configparser.ConfigParser()
+config.read('config.ini')
+allowed_ip = [config['url']['server_ip']]
 with open(f'{current_directory}/store/password.txt') as f:
     ip_password = f.readline().strip()
 def limit_ip_address(func):
     def wrapper(*args, **kwargs):
         if request.remote_addr not in allowed_ip and not web_debug:
-            return 'Forbidden', 403  
+            return f'Forbidden, request IP {request.remote_addr}', 403  
         return func(*args, **kwargs)
     wrapper.__name__ = func.__name__
     wrapper.__doc__ = func.__doc__
@@ -298,11 +302,9 @@ def updateGallery():
 @app.route('/upload', methods=['GET'])
 @limit_ip_address
 def uploadPage():
-    config = configparser.ConfigParser()
-    config.read('config.ini')
-    ip = config['url']['server_url']
+    url = config['url']['server_url']
     template = env.get_template('upload.html')
-    return template.render(url=ip+'/upload')
+    return template.render(url=url+'/upload')
 @app.route('/gallery', methods=['GET'])
 @limit_ip_address
 def galleryPage():
