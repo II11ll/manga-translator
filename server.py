@@ -34,6 +34,9 @@ config.read('config.ini')
 allowed_ip = [config['url']['server_ip']]
 with open(f'{current_directory}/store/password.txt') as f:
     ip_password = f.readline().strip()
+def write_error_log(text):
+    with open('error.log', 'a', encoding='utf-8') as f:
+        f.write(text)
 def limit_ip_address(func):
     def wrapper(*args, **kwargs):
         if request.remote_addr not in allowed_ip and not web_debug:
@@ -53,6 +56,7 @@ def clear(clearStash = False):
 def upload_to_bypy(folder_name):
     subprocess.run(['bypy','syncup', f'{current_directory}/store/{folder_name}', f'bypy/store/{folder_name}'])
 def parse_img(args_param_lst):
+    mocr = MangaOcr()
     # detector中是读取文件夹，然后推理文件夹里的所有图片
     # 所以要上传多图逐个识别要先存到stash，在一个个复制到input文件夹中...
     for args_param in args_param_lst:
@@ -136,6 +140,8 @@ def parse_img(args_param_lst):
             thread.start()
         # 推理完休息下，防止把内存干爆...
         time.sleep(10)
+        
+    mocr = None
         
         
 
@@ -320,11 +326,26 @@ def galleryPage():
     template = env.get_template('gallery.html')
     return template.render(
         images_data = images_data, total_pages = total_pages, page = page, url_for = url_for, max=max, min=min)
-@app.route('/delete')
+@app.route('/delete', methods=['GET'])
 @limit_ip_address
 def delete():
-    # todo delete
-    pass
+    # store/{folder}/{floder}.png
+    img_path = request.args.get('img_name', default='output', type=str)
+    split_result = img_path.split('/')
+    if split_result[0] != 'store':
+        write_error_log(f'删除时错误:{img_path}')
+    else:
+        try:
+            folder = split_result[1]
+            session = Session()
+            gallery = session.query(Gallery).filter(Gallery.folder_name == folder).one()
+            session.delete(gallery)
+            session.commit()
+            session.close()
+            subprocess.run(['rm','-rf',f'./store/{folder}'])
+        except Exception as e:
+            write_error_log(f'删除时错误:{img_path}, 错误信息:{e}')
+    return redirect(url_for('galleryPage'))
 @app.route('/output/<filename>')
 @limit_ip_address
 def uploaded_file(filename):
@@ -347,7 +368,6 @@ def register_ip():
         return redirect(url_for('galleryPage'))
     return 'Forbidden', 403  
 if not web_debug:
-    mocr = MangaOcr()
     detector_model = init()
 #CORS(app)
 # 使用gunicorn时代码中不要运行app.run

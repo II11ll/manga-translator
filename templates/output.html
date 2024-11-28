@@ -96,6 +96,11 @@ function updateTag(){
   .then(json => console.log('Success:', json))
   .catch((error) => console.error('Error:', error));
 }
+function deleteImg(img_name){
+   fetch('/delete?img_name=' + img_name, {
+    method: 'GET'
+    });
+}
 </script>
 {% endblock %}
 
@@ -111,6 +116,7 @@ function updateTag(){
   </div>
   <!-- 我真傻，真的...怎么没有早想到在前端加个按钮就能加前缀呢... -->
   <button class="btn btn-primary" onclick="copyToClip(true);">添加前缀</button>
+  <button class="btn btn-primary" onclick="deleteImg('{{img_name}}');">删除</button>
   <textarea id="gallery-tag" class="form-control collapsible-textarea" rows="1" placeholder="tag" onblur="updateTag()">{{gallery.tag}}</textarea>
   {% for item in output %}
   <div class="row" id="item-{{ item['index'] }}">
